@@ -10,7 +10,7 @@ import (
 	"gorm.io/plugin/dbresolver"
 )
 
-//go:generate mockgen -source=db.go -destination=mocks/db.go -package=mocks
+//go:generate mockgen -destination=mocks/db.go -package=mocks . Provider
 type Provider interface {
 	NewSession(ctx context.Context, opts ...Option) *gorm.DB
 	Transaction(ctx context.Context, fn func(tx *gorm.DB) error, opts ...Option) error
