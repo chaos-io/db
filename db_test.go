@@ -16,7 +16,7 @@ func Test_MysqlNew(t *testing.T) {
 		Debug:  true,
 	}
 
-	db, err := New(cfg)
+	db, err := newDBFrom(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }
@@ -28,7 +28,7 @@ func Test_SqliteNew(t *testing.T) {
 		Debug:  true,
 	}
 
-	db, err := New(cfg)
+	db, err := newDBFrom(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }
@@ -40,7 +40,7 @@ func Test_PgsqlNew(t *testing.T) {
 		Debug:  true,
 	}
 
-	db, err := New(cfg)
+	db, err := newDBFrom(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }

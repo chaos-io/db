@@ -1,26 +1,21 @@
 package db
 
 import (
-	"context"
+	"errors"
+	"fmt"
 
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"gorm.io/gorm/utils"
-	"gorm.io/plugin/dbresolver"
 )
 
-//go:generate mockgen -destination=mocks/db.go -package=mocks . Provider
-type Provider interface {
-	NewSession(ctx context.Context, opts ...Option) *gorm.DB
-	Transaction(ctx context.Context, fn func(tx *gorm.DB) error, opts ...Option) error
-}
-
-type provider struct {
-	db *gorm.DB
-}
-
-var _ Provider = &provider{}
+const (
+	MysqlDriver    = "mysql"
+	SqliteDriver   = "sqlite"
+	PostgresDriver = "postgres"
+)
 
 func NewDB(dialect gorm.Dialector, opts ...gorm.Option) (Provider, error) {
 	db, err := gorm.Open(dialect, opts...)
@@ -30,13 +25,17 @@ func NewDB(dialect gorm.Dialector, opts ...gorm.Option) (Provider, error) {
 	return &provider{db: db}, nil
 }
 
-func NewDBFromConfig(cfg *Config, opts ...gorm.Option) (Provider, error) {
-	if !utils.Contains(mysql.UpdateClauses, "RETURNING") {
+func NewDBFrom(cfg *Config, opts ...gorm.Option) (Provider, error) {
+	if cfg == nil {
+		return nil, errors.New("db config can't be nil")
+	}
+
+	if cfg.Driver == MysqlDriver && !utils.Contains(mysql.UpdateClauses, "RETURNING") {
 		mysql.UpdateClauses = append(mysql.UpdateClauses, "RETURNING")
 	}
 	opts = append(opts, &gorm.Config{TranslateError: true})
 
-	db, err := New(cfg, opts...)
+	db, err := newDBFrom(cfg, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -44,69 +43,36 @@ func NewDBFromConfig(cfg *Config, opts ...gorm.Option) (Provider, error) {
 	return &provider{db: db}, nil
 }
 
-func (p *provider) NewSession(ctx context.Context, opts ...Option) *gorm.DB {
-	session := p.db
+func newDBFrom(cfg *Config, opts ...gorm.Option) (*gorm.DB, error) {
+	var err error
+	var d *gorm.DB
 
-	opt := &option{}
-	for _, fn := range opts {
-		fn(opt)
+	switch cfg.Driver {
+	case MysqlDriver:
+		d, err = gorm.Open(mysql.Open(cfg.DSN), opts...)
+	case SqliteDriver:
+		d, err = gorm.Open(sqlite.Open(cfg.DSN), opts...)
+	case PostgresDriver:
+		d, err = gorm.Open(postgres.Open(cfg.DSN), opts...)
+	default:
+		err = fmt.Errorf("database %q is not support", cfg.Driver)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database, error: %v", err)
+	}
+	if d == nil {
+		return nil, fmt.Errorf("failed to open database")
 	}
 
-	if opt.tx != nil {
-		session = opt.tx
-	}
-	if opt.debug {
-		session = session.Debug()
-	}
-	if opt.master {
-		session = session.Clauses(dbresolver.Write)
-	}
-	if opt.deleted {
-		session = session.Unscoped()
-	}
-	if opt.SelectForUpdate {
-		session = session.Clauses(clause.Locking{Strength: "UPDATE"})
+	db, err := d.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect database, error: %v", err)
 	}
 
-	return session.WithContext(ctx)
-}
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 
-func (p *provider) Transaction(ctx context.Context, fn func(tx *gorm.DB) error, opts ...Option) error {
-	session := p.NewSession(ctx, opts...)
-	return session.Transaction(fn)
-}
-
-type option struct {
-	tx *gorm.DB
-
-	debug           bool
-	master          bool
-	deleted         bool
-	SelectForUpdate bool
-}
-
-type Option func(*option)
-
-func WithDebug() Option {
-	return func(o *option) {
-		o.debug = true
-	}
-}
-
-func WithMaster() Option {
-	return func(o *option) {
-		o.master = true
-	}
-}
-
-func WithDeleted() Option {
-	return func(o *option) {
-		o.deleted = true
-	}
-}
-
-func WithSelectForUpdate() Option {
-	return func(o *option) {
-		o.SelectForUpdate = true
-	}
+	return d, nil
 }
