@@ -3,12 +3,10 @@ module github.com/chaos-io/db
 go 1.24.12
 
 require (
-	github.com/golang/mock v1.6.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
-	gorm.io/plugin/dbresolver v1.6.2
 )
 
 require (
