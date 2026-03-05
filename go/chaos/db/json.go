@@ -17,7 +17,7 @@ func (v JSONValuer) Value(value any) (driver.Value, error) {
 		return nil, nil
 	}
 
-	return jsoniter.ConfigFastest.MarshalToString(value), nil
+	return jsoniter.ConfigFastest.MarshalToString(value)
 }
 
 type JSONScanner struct{}
