@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package db;
+
+option go_package = "github.com/chaos-io/db/go/db;db";
+
+message DataType {
+  string name = 1;
+}

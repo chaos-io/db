@@ -1,0 +1,9 @@
+package:
+  name: db
+  version: v0.1.0
+  authors:
+    - author: 
+      email: 
+      organization: 
+  dependencies:
+  repository: github.com/chaos-io/db
